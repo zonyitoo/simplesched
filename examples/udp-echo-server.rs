@@ -5,9 +5,9 @@ extern crate mio;
 
 extern crate simplesched;
 
-use clap::{Arg, App};
+use std::net::SocketAddr;
 
-use mio::buf::RingBuf;
+use clap::{Arg, App};
 
 use simplesched::Scheduler;
 use simplesched::net::udp::UdpSocket;
@@ -27,18 +27,18 @@ fn main() {
     let bind_addr = matches.value_of("BIND").unwrap().to_owned();
 
     Scheduler::spawn(move|| {
-        let addr = bind_addr.parse().unwrap();
-        let server = UdpSocket::bound(&addr).unwrap();
+        let addr: SocketAddr = bind_addr.parse().unwrap();
+        let server = UdpSocket::bind(&addr).unwrap();
 
         info!("Listening on {:?}", server.local_addr().unwrap());
 
-        let mut buf = RingBuf::new(1024);
+        let mut buf = [0u8; 1024];
 
         loop {
-            let peer_addr = server.recv_from(&mut buf).unwrap().unwrap();
+            let (len, peer_addr) = server.recv_from(&mut buf).unwrap();
             info!("Accept connection: {:?}", peer_addr);
 
-            server.send_to(&mut buf, &peer_addr).unwrap();
+            server.send_to(&mut buf[..len], &peer_addr).unwrap();
         }
     });
 
