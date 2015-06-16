@@ -26,7 +26,7 @@ use std::sync::Arc;
 use coroutine::spawn;
 use coroutine::{Handle, Coroutine, Options};
 
-use mpmc::Queue;
+use mio::util::BoundedQueue;
 
 use processor::Processor;
 
@@ -35,7 +35,7 @@ lazy_static! {
 }
 
 pub struct Scheduler {
-    global_queue: Arc<Queue<Handle>>,
+    global_queue: Arc<BoundedQueue<Handle>>,
     work_counts: AtomicUsize,
 }
 
@@ -47,7 +47,7 @@ const GLOBAL_QUEUE_SIZE: usize = 0x1000;
 impl Scheduler {
     fn new() -> Scheduler {
         Scheduler {
-            global_queue: Arc::new(Queue::new(GLOBAL_QUEUE_SIZE)),
+            global_queue: Arc::new(BoundedQueue::with_capacity(GLOBAL_QUEUE_SIZE)),
             work_counts: AtomicUsize::new(0),
         }
     }
@@ -58,12 +58,17 @@ impl Scheduler {
     }
 
     /// A coroutine is ready for schedule
-    pub fn ready(hdl: Handle) {
-        Scheduler::get().global_queue.enqueue(hdl);
+    pub fn ready(mut hdl: Handle) {
+        loop {
+            match Scheduler::get().global_queue.push(hdl) {
+                Ok(..) => return,
+                Err(h) => hdl = h,
+            }
+        }
     }
 
     /// Get the global work queue
-    pub fn get_queue(&self) -> Arc<Queue<Handle>> {
+    pub fn get_queue(&self) -> Arc<BoundedQueue<Handle>> {
         self.global_queue.clone()
     }
 

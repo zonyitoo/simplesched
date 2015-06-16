@@ -14,7 +14,7 @@ use mio::util::Slab;
 #[cfg(target_os = "linux")]
 use mio::Io;
 
-use mpmc::Queue;
+use mio::util::BoundedQueue;
 
 use scheduler::Scheduler;
 
@@ -22,7 +22,7 @@ thread_local!(static PROCESSOR: UnsafeCell<Processor> = UnsafeCell::new(Processo
 
 pub struct Processor {
     event_loop: EventLoop<IoHandler>,
-    work_queue: Arc<Queue<Handle>>,
+    work_queue: Arc<BoundedQueue<Handle>>,
     handler: IoHandler,
 }
 
@@ -45,7 +45,7 @@ impl Processor {
                 try!(self.event_loop.run_once(&mut self.handler));
             }
 
-            match self.work_queue.try_dequeue() {
+            match self.work_queue.pop() {
                 Some(hdl) => {
                     match hdl.resume() {
                         Ok(State::Suspended) => {

@@ -25,7 +25,6 @@ extern crate coroutine;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate libc;
-extern crate mpmc;
 #[macro_use] extern crate lazy_static;
 
 pub use scheduler::Scheduler;
