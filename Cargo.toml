@@ -1,0 +1,27 @@
+[package]
+name = "simplesched"
+version = "0.1.0"
+authors = ["Y. T. Chung <zonyitoo@gmail.com>"]
+
+[lib]
+name = "simplesched"
+
+[dependencies]
+coroutine = "*"
+log = "*"
+#mio = "*"
+lazy_static = "*"
+
+[dev-dependencies]
+env_logger = "*"
+clap = "*"
+hyper = "*"
+rand = "*"
+openssl = "*"
+num_cpus = "*"
+
+[dependencies.mio]
+git = "https://github.com/carllerche/mio.git"
+
+[dependencies.bounded-mpmc-queue]
+git = "https://github.com/VHaravy/bounded-mpmc-queue.git"
