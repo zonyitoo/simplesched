@@ -21,10 +21,10 @@
 
 use std::ops::{Deref, DerefMut};
 use std::io;
-use std::net::SocketAddr;
+use std::net::{ToSocketAddrs, SocketAddr};
 
 use mio::Interest;
-use mio::buf::{Buf, MutBuf};
+use mio::buf::{Buf, MutBuf, SliceBuf, MutSliceBuf};
 
 use processor::Processor;
 
@@ -41,38 +41,63 @@ impl UdpSocket {
         Ok(UdpSocket(try!(::mio::udp::UdpSocket::v6())))
     }
 
-    pub fn bound(addr: &SocketAddr) -> io::Result<UdpSocket> {
-        Ok(UdpSocket(try!(::mio::udp::UdpSocket::bound(addr))))
+    pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<UdpSocket> {
+        super::each_addr(addr, |a| {
+            ::mio::udp::UdpSocket::bound(&a)
+        }).map(UdpSocket)
     }
 
     pub fn try_clone(&self) -> io::Result<UdpSocket> {
         Ok(UdpSocket(try!(self.0.try_clone())))
     }
 
-    pub fn send_to<B: Buf>(&self, buf: &mut B, target: &SocketAddr) -> io::Result<Option<()>> {
-        match try!(self.0.send_to(buf, target)) {
-            None => {
-                debug!("UdpSocket send_to WOULDBLOCK");
-            },
-            Some(..) => {
-                return Ok(Some(()));
+    pub fn send_to<A: ToSocketAddrs>(&self, slice_buf: &[u8], target: A) -> io::Result<usize> {
+        let mut buf = SliceBuf::wrap(slice_buf);
+
+        let mut last_err = Ok(0);
+        for addr in try!(target.to_socket_addrs()) {
+            match self.0.send_to(&mut buf, &addr) {
+                Ok(None) => {
+                    debug!("UdpSocket send_to WOULDBLOCK");
+                    break;
+                },
+                Ok(Some(..)) => {
+                    return Ok(slice_buf.len() - buf.remaining());
+                },
+                Err(err) => last_err = Err(err),
             }
         }
 
-        try!(Processor::current().wait_event(&self.0, Interest::writable()));
+        if last_err.is_err() {
+            return last_err;
+        }
 
-        match try!(self.0.send_to(buf, target)) {
-            None => {
-                panic!("UdpSocket send_to WOULDBLOCK");
-            },
-            Some(..) => {
-                return Ok(Some(()));
+        for addr in try!(target.to_socket_addrs()) {
+            loop {
+                try!(Processor::current().wait_event(&self.0, Interest::writable()));
+
+                match self.0.send_to(&mut buf, &addr) {
+                    Ok(None) => {
+                        warn!("UdpSocket send_to WOULDBLOCK");
+                    },
+                    Ok(Some(..)) => {
+                        return Ok(slice_buf.len() - buf.remaining());
+                    },
+                    Err(err) => {
+                        last_err = Err(err);
+                        break;
+                    }
+                }
             }
         }
+
+        last_err
     }
 
-    pub fn recv_from<B: MutBuf>(&self, buf: &mut B) -> io::Result<Option<SocketAddr>> {
-        match try!(self.0.recv_from(buf)) {
+    pub fn recv_from(&self, slice_buf: &mut [u8]) -> io::Result<Option<SocketAddr>> {
+        let mut buf = MutSliceBuf::wrap(slice_buf);
+
+        match try!(self.0.recv_from(&mut buf)) {
             None => {
                 debug!("UdpSocket recv_from WOULDBLOCK");
             },
@@ -81,14 +106,16 @@ impl UdpSocket {
             }
         }
 
-        try!(Processor::current().wait_event(&self.0, Interest::readable()));
+        loop {
+            try!(Processor::current().wait_event(&self.0, Interest::readable()));
 
-        match try!(self.0.recv_from(buf)) {
-            None => {
-                panic!("UdpSocket recv_from WOULDBLOCK");
-            },
-            Some(addr) => {
-                return Ok(Some(addr));
+            match try!(self.0.recv_from(&mut buf)) {
+                None => {
+                    warn!("UdpSocket recv_from WOULDBLOCK");
+                },
+                Some(addr) => {
+                    return Ok(Some(addr));
+                }
             }
         }
     }
