@@ -125,7 +125,7 @@ impl Handler for IoHandler {
                 // Linux EPoll needs to explicit EPOLL_CTL_DEL the fd
                 event_loop.deregister(&fd).unwrap();
                 mem::forget(fd);
-                Scheduler::current().ready(hdl);
+                Scheduler::get().ready(hdl);
             },
             None => {
                 warn!("No coroutine is waiting on writable {:?}", token);
@@ -143,7 +143,7 @@ impl Handler for IoHandler {
                 // Linux EPoll needs to explicit EPOLL_CTL_DEL the fd
                 event_loop.deregister(&fd).unwrap();
                 mem::forget(fd);
-                Scheduler::current().ready(hdl);
+                Scheduler::get().ready(hdl);
             },
             None => {
                 warn!("No coroutine is waiting on readable {:?}", token);
