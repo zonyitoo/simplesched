@@ -6,6 +6,8 @@ use std::os::unix::io::AsRawFd;
 use std::convert::From;
 use std::sync::Arc;
 use std::thread;
+#[cfg(target_os = "linux")]
+use std::mem;
 
 use coroutine::{State, Handle, Coroutine};
 
