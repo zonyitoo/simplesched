@@ -94,7 +94,8 @@ impl UdpSocket {
         last_err
     }
 
-    pub fn recv_from(&self, slice_buf: &mut [u8]) -> io::Result<Option<SocketAddr>> {
+    pub fn recv_from(&self, slice_buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        let total_len = slice_buf.len();
         let mut buf = MutSliceBuf::wrap(slice_buf);
 
         match try!(self.0.recv_from(&mut buf)) {
@@ -102,7 +103,7 @@ impl UdpSocket {
                 debug!("UdpSocket recv_from WOULDBLOCK");
             },
             Some(addr) => {
-                return Ok(Some(addr));
+                return Ok((total_len - buf.remaining(), addr));
             }
         }
 
@@ -114,7 +115,7 @@ impl UdpSocket {
                     warn!("UdpSocket recv_from WOULDBLOCK");
                 },
                 Some(addr) => {
-                    return Ok(Some(addr));
+                    return Ok((total_len - buf.remaining(), addr));
                 }
             }
         }
