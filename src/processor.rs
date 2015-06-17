@@ -94,7 +94,7 @@ impl Processor {
     pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: Interest) -> io::Result<()> {
         let token = self.handler.slabs.insert((Coroutine::current().clone(), From::from(fd.as_raw_fd()))).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
-                                         PollOpt::level()|PollOpt::oneshot()));
+                                          PollOpt::edge()|PollOpt::oneshot()));
 
         debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
         Coroutine::block();
@@ -163,7 +163,7 @@ impl Processor {
     pub fn wait_event<E: Evented>(&mut self, fd: &E, interest: Interest) -> io::Result<()> {
         let token = self.handler.slabs.insert(Coroutine::current().clone()).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
-                                         PollOpt::level()|PollOpt::oneshot()));
+                                          PollOpt::edge()|PollOpt::oneshot()));
 
         debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
         Coroutine::block();
