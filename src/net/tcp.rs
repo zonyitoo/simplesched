@@ -231,7 +231,7 @@ impl io::Read for TcpStream {
 
             match self.0.try_read(buf) {
                 Ok(None) => {
-                    warn!("TcpStream read WouldBlock");
+                    debug!("TcpStream read WouldBlock");
                 },
                 Ok(Some(0)) => {
                     debug!("TcpStream read 0 bytes; may be EOF");
@@ -277,7 +277,7 @@ impl io::Write for TcpStream {
 
             match self.0.try_write(buf) {
                 Ok(None) => {
-                    warn!("TcpStream write WouldBlock");
+                    debug!("TcpStream write WouldBlock");
                 },
                 Ok(Some(0)) => {
                     debug!("TcpStream write 0 bytes; may be EOF");
