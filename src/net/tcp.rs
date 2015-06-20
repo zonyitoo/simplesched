@@ -271,7 +271,7 @@ impl io::Write for TcpStream {
         }
 
         loop {
-             debug!("Write: Going to register event");
+            debug!("Write: Going to register event");
             try!(Processor::current().wait_event(&self.0, Interest::writable()));
             debug!("Write: Got write event");
 

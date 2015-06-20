@@ -43,10 +43,6 @@ impl Processor {
 
     pub fn schedule(&mut self) -> io::Result<()> {
         loop {
-            if self.handler.slabs.count() != 0 {
-                try!(self.event_loop.run_once(&mut self.handler));
-            }
-
             match self.work_queue.pop() {
                 Some(hdl) => {
                     match hdl.resume() {
@@ -65,11 +61,10 @@ impl Processor {
                     }
                 },
                 None => {
-                    if Scheduler::get().work_count() == 0 {
+                    if self.handler.slabs.count() != 0 {
+                        try!(self.event_loop.run_once(&mut self.handler));
+                    } else if Scheduler::get().work_count() == 0 {
                         break;
-                    }
-                    if self.handler.slabs.count() == 0 {
-                        thread::sleep_ms(100);
                     }
                 }
             }
