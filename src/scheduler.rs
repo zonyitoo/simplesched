@@ -120,5 +120,10 @@ impl Scheduler {
             fut.join().unwrap();
         }
     }
+
+    /// Suspend the current coroutine
+    pub fn sched() {
+        Coroutine::sched();
+    }
 }
 
