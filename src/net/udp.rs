@@ -59,35 +59,27 @@ impl UdpSocket {
             match self.0.send_to(&mut buf, &addr) {
                 Ok(None) => {
                     debug!("UdpSocket send_to WOULDBLOCK");
-                    break;
+
+                    loop {
+                        try!(Processor::current().wait_event(&self.0, Interest::writable()));
+
+                        match self.0.send_to(&mut buf, &addr) {
+                            Ok(None) => {
+                                warn!("UdpSocket send_to WOULDBLOCK");
+                            },
+                            Ok(Some(..)) => {
+                                return Ok(slice_buf.len() - buf.remaining());
+                            },
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    }
                 },
                 Ok(Some(..)) => {
                     return Ok(slice_buf.len() - buf.remaining());
                 },
                 Err(err) => last_err = Err(err),
-            }
-        }
-
-        if last_err.is_err() {
-            return last_err;
-        }
-
-        for addr in try!(target.to_socket_addrs()) {
-            loop {
-                try!(Processor::current().wait_event(&self.0, Interest::writable()));
-
-                match self.0.send_to(&mut buf, &addr) {
-                    Ok(None) => {
-                        warn!("UdpSocket send_to WOULDBLOCK");
-                    },
-                    Ok(Some(..)) => {
-                        return Ok(slice_buf.len() - buf.remaining());
-                    },
-                    Err(err) => {
-                        last_err = Err(err);
-                        break;
-                    }
-                }
             }
         }
 
