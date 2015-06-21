@@ -65,6 +65,8 @@ impl Processor {
                         try!(self.event_loop.run_once(&mut self.handler));
                     } else if Scheduler::get().work_count() == 0 {
                         break;
+                    } else {
+                        thread::sleep_ms(100);
                     }
                 }
             }
