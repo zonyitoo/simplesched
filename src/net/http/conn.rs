@@ -282,20 +282,6 @@ mod openssl {
     use hyper;
 
 
-    /// An implementation of `Ssl` for OpenSSL.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use hyper::Server;
-    /// use hyper::net::Openssl;
-    ///
-    /// let ssl = Openssl::with_cert_and_key("/home/foo/cert", "/home/foo/key").unwrap();
-    /// Server::https("0.0.0.0:443", ssl).unwrap();
-    /// ```
-    ///
-    /// For complete control, create a `SslContext` with the options you desire
-    /// and then create `Openssl { context: ctx }
     #[derive(Debug, Clone)]
     pub struct Openssl {
         /// The `SslContext` from openssl crate.
