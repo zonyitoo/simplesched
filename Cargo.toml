@@ -6,19 +6,31 @@ authors = ["Y. T. Chung <zonyitoo@gmail.com>"]
 [lib]
 name = "simplesched"
 
+[features]
+default = [
+    "openssl"
+]
+
 [dependencies]
 coroutine = "*"
 log = "*"
 #mio = "*"
 lazy_static = "*"
+url = "0.2"
 
 [dev-dependencies]
 env_logger = "*"
 clap = "*"
-hyper = "*"
 rand = "*"
 openssl = "*"
 num_cpus = "*"
 
 [dependencies.mio]
 git = "https://github.com/carllerche/mio.git"
+
+[dependencies.hyper]
+git = "https://github.com/hyperium/hyper.git"
+
+[dependencies.openssl]
+version = "*"
+optional = true

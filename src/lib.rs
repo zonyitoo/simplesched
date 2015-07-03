@@ -26,6 +26,10 @@ extern crate coroutine;
 extern crate mio;
 extern crate libc;
 #[macro_use] extern crate lazy_static;
+extern crate hyper;
+extern crate url;
+#[cfg(feature = "openssl")]
+extern crate openssl;
 
 pub use scheduler::Scheduler;
 
