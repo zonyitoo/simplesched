@@ -78,14 +78,19 @@ impl<S: Ssl + Clone + Send> Server<HttpsListener<S>> {
 
 impl<L: NetworkListener + Send + 'static> Server<L> {
     /// Binds to a socket.
-    pub fn listen<H: Handler + Copy + 'static>(mut self, handler: H) -> hyper::Result<SocketAddr> {
+    pub fn listen<H: Handler + 'static>(mut self, handler: H) -> hyper::Result<SocketAddr> {
         let socket = try!(self.listener.local_addr());
 
         Scheduler::spawn(move|| {
+            use std::sync::Arc;
+            use std::ops::Deref;
+
+            let handler = Arc::new(handler);
             loop {
                 let mut stream = self.listener.accept().unwrap();
 
-                Scheduler::spawn(move|| Worker(&handler).handle_connection(&mut stream));
+                let handler = handler.clone();
+                Scheduler::spawn(move|| Worker(handler.deref()).handle_connection(&mut stream));
             }
         });
 
