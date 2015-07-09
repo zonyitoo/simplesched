@@ -23,7 +23,7 @@ use std::ops::{Deref, DerefMut};
 use std::io;
 use std::net::{ToSocketAddrs, SocketAddr};
 
-use mio::Interest;
+use mio::EventSet;
 use mio::buf::{Buf, MutBuf, SliceBuf, MutSliceBuf};
 
 use processor::Processor;
@@ -61,7 +61,7 @@ impl UdpSocket {
                     debug!("UdpSocket send_to WOULDBLOCK");
 
                     loop {
-                        try!(Processor::current().wait_event(&self.0, Interest::writable()));
+                        try!(Processor::current().wait_event(&self.0, EventSet::writable()));
 
                         match self.0.send_to(&mut buf, &addr) {
                             Ok(None) => {
@@ -100,7 +100,7 @@ impl UdpSocket {
         }
 
         loop {
-            try!(Processor::current().wait_event(&self.0, Interest::readable()));
+            try!(Processor::current().wait_event(&self.0, EventSet::readable()));
 
             match try!(self.0.recv_from(&mut buf)) {
                 None => {

@@ -11,7 +11,7 @@ use std::mem;
 
 use coroutine::{State, Handle, Coroutine};
 
-use mio::{EventLoop, Evented, Handler, Token, ReadHint, Interest, PollOpt};
+use mio::{EventLoop, Evented, Handler, Token, EventSet, PollOpt};
 use mio::util::Slab;
 #[cfg(target_os = "linux")]
 use mio::Io;
@@ -88,7 +88,7 @@ impl IoHandler {
 #[cfg(any(target_os = "linux",
           target_os = "android"))]
 impl Processor {
-    pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: Interest) -> io::Result<()> {
+    pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
         let token = self.handler.slabs.insert((Coroutine::current().clone(), From::from(fd.as_raw_fd()))).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
                                           PollOpt::edge()|PollOpt::oneshot()));
@@ -113,27 +113,8 @@ impl Handler for IoHandler {
     type Timeout = ();
     type Message = ();
 
-    fn writable(&mut self, event_loop: &mut EventLoop<Self>, token: Token) {
-
-        debug!("In writable, token {:?}", token);
-
-        match self.slabs.remove(token) {
-            Some((hdl, fd)) => {
-                // Linux EPoll needs to explicit EPOLL_CTL_DEL the fd
-                event_loop.deregister(&fd).unwrap();
-                mem::forget(fd);
-                Scheduler::ready(hdl);
-            },
-            None => {
-                warn!("No coroutine is waiting on writable {:?}", token);
-            }
-        }
-
-    }
-
-    fn readable(&mut self, event_loop: &mut EventLoop<Self>, token: Token, hint: ReadHint) {
-
-        debug!("In readable, token {:?}, hint {:?}", token, hint);
+    fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
+        debug!("Got {:?} for {:?}", events, token);
 
         match self.slabs.remove(token) {
             Some((hdl, fd)) => {
@@ -146,7 +127,6 @@ impl Handler for IoHandler {
                 warn!("No coroutine is waiting on readable {:?}", token);
             }
         }
-
     }
 }
 
@@ -157,7 +137,7 @@ impl Handler for IoHandler {
           target_os = "bitrig",
           target_os = "openbsd"))]
 impl Processor {
-    pub fn wait_event<E: Evented>(&mut self, fd: &E, interest: Interest) -> io::Result<()> {
+    pub fn wait_event<E: Evented>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
         let token = self.handler.slabs.insert(Coroutine::current().clone()).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
                                           PollOpt::edge()|PollOpt::oneshot()));
@@ -190,24 +170,8 @@ impl Handler for IoHandler {
     type Timeout = ();
     type Message = ();
 
-    fn writable(&mut self, _: &mut EventLoop<Self>, token: Token) {
-
-        debug!("In writable, token {:?}", token);
-
-        match self.slabs.remove(token) {
-            Some(hdl) => {
-                Scheduler::ready(hdl);
-            },
-            None => {
-                warn!("No coroutine is waiting on writable {:?}", token);
-            }
-        }
-
-    }
-
-    fn readable(&mut self, _: &mut EventLoop<Self>, token: Token, hint: ReadHint) {
-
-        debug!("In readable, token {:?}, hint {:?}", token, hint);
+    fn ready(&mut self, _: &mut EventLoop<Self>, token: Token, events: EventSet) {
+        debug!("Got {:?} for {:?}", events, token);
 
         match self.slabs.remove(token) {
             Some(hdl) => {
@@ -217,6 +181,5 @@ impl Handler for IoHandler {
                 warn!("No coroutine is waiting on readable {:?}", token);
             }
         }
-
     }
 }

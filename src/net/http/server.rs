@@ -22,9 +22,8 @@
 
 use std::net::{ToSocketAddrs, SocketAddr};
 use std::convert::From;
-use std::io::{self, Read, Write, BufWriter};
+use std::io::{self, Write, BufWriter};
 
-use hyper::server;
 use hyper;
 use hyper::http;
 use hyper::buffer::BufReader;
@@ -33,9 +32,7 @@ use hyper::header::{Connection, Headers, Expect};
 use hyper::version::HttpVersion;
 use hyper::net::{NetworkListener, NetworkStream};
 use hyper::status::StatusCode;
-use hyper::uri::RequestUri::AbsolutePath;
 use hyper::error::Error;
-use hyper::method::Method;
 
 use net::http::conn::{HttpListener, HttpsListener, Ssl};
 

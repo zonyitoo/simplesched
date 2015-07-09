@@ -303,7 +303,8 @@ mod openssl {
     impl Openssl {
         /// Ease creating an `Openssl` with a certificate and key.
         pub fn with_cert_and_key<C, K>(cert: C, key: K) -> Result<Openssl, SslError>
-        where C: AsRef<Path>, K: AsRef<Path> {
+                where C: AsRef<Path>, K: AsRef<Path>
+        {
             let mut ctx = try!(SslContext::new(SslMethod::Sslv23));
             try!(ctx.set_cipher_list("DEFAULT"));
             try!(ctx.set_certificate_file(cert.as_ref(), X509FileType::PEM));

@@ -20,7 +20,6 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 
-use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
 
 use hyper::client;
