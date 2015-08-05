@@ -24,7 +24,8 @@ use std::io;
 use std::net::{ToSocketAddrs, SocketAddr};
 
 use mio::EventSet;
-use mio::buf::{Buf, MutBuf, SliceBuf, MutSliceBuf};
+
+use bytes::{Buf, MutBuf, SliceBuf, MutSliceBuf};
 
 use processor::Processor;
 

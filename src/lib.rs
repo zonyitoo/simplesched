@@ -30,6 +30,7 @@ extern crate hyper;
 extern crate url;
 #[cfg(feature = "openssl")]
 extern crate openssl;
+extern crate bytes;
 
 pub use scheduler::Scheduler;
 
