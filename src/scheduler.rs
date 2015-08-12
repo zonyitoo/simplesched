@@ -22,20 +22,37 @@
 use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-
-use coroutine::spawn;
-use coroutine::{Handle, Coroutine, Options};
+use std::mem;
 
 use mio::util::BoundedQueue;
 
 use processor::Processor;
 
+use coroutine::Coroutine;
+use options::Options;
+
 lazy_static! {
     static ref SCHEDULER: Scheduler = Scheduler::new();
 }
 
+#[allow(raw_pointer_derive)]
+#[derive(Copy, Clone, Debug)]
+pub struct CoroutineRefMut {
+    pub coro_ptr: *mut Coroutine,
+}
+
+impl CoroutineRefMut {
+    pub fn new(coro: *mut Coroutine) -> CoroutineRefMut {
+        CoroutineRefMut {
+            coro_ptr: coro,
+        }
+    }
+}
+
+unsafe impl Send for CoroutineRefMut {}
+
 pub struct Scheduler {
-    global_queue: Arc<BoundedQueue<Handle>>,
+    global_queue: Arc<BoundedQueue<CoroutineRefMut>>,
     work_counts: AtomicUsize,
 }
 
@@ -58,23 +75,26 @@ impl Scheduler {
     }
 
     /// A coroutine is ready for schedule
-    pub fn ready(mut hdl: Handle) {
+    pub fn ready(mut coro: CoroutineRefMut) {
         loop {
-            match Scheduler::get().global_queue.push(hdl) {
+            match Scheduler::get().global_queue.push(coro) {
                 Ok(..) => return,
-                Err(h) => hdl = h,
+                Err(h) => coro = h,
             }
         }
     }
 
     /// Get the global work queue
-    pub fn get_queue(&self) -> Arc<BoundedQueue<Handle>> {
+    pub fn get_queue(&self) -> Arc<BoundedQueue<CoroutineRefMut>> {
         self.global_queue.clone()
     }
 
     /// A coroutine is finished
-    pub fn finished(_: Handle) {
+    pub fn finished(coro: CoroutineRefMut) {
         Scheduler::get().work_counts.fetch_sub(1, Ordering::SeqCst);
+
+        let boxed = unsafe { Box::from_raw(coro.coro_ptr) };
+        drop(boxed);
     }
 
     /// Total work
@@ -88,8 +108,10 @@ impl Scheduler {
     {
         let coro = Coroutine::spawn(f);
         Scheduler::get().work_counts.fetch_add(1, Ordering::SeqCst);
+
+        let coro = CoroutineRefMut::new(unsafe { mem::transmute(coro) });
         Scheduler::ready(coro);
-        Coroutine::sched();
+        Scheduler::sched();
     }
 
     /// Spawn a new coroutine with options
@@ -98,8 +120,9 @@ impl Scheduler {
     {
         let coro = Coroutine::spawn_opts(f, opts);
         Scheduler::get().work_counts.fetch_add(1, Ordering::SeqCst);
+        let coro = CoroutineRefMut::new(unsafe { mem::transmute(coro) });
         Scheduler::ready(coro);
-        Coroutine::sched();
+        Scheduler::sched();
     }
 
     /// Run the scheduler with `n` threads
@@ -123,7 +146,10 @@ impl Scheduler {
 
     /// Suspend the current coroutine
     pub fn sched() {
-        Coroutine::sched();
+        Processor::current().sched();
+    }
+
+    pub fn block() {
+        Processor::current().block();
     }
 }
-

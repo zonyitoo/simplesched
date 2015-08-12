@@ -19,9 +19,9 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#![feature(libc, reflect_marker)]
+#![feature(libc, rt, box_raw)]
 
-extern crate coroutine;
+extern crate context;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate libc;
@@ -37,4 +37,6 @@ pub use scheduler::Scheduler;
 pub mod scheduler;
 pub mod net;
 pub mod processor;
-pub mod sync;
+pub mod options;
+// pub mod sync;
+mod coroutine;

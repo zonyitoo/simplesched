@@ -12,11 +12,10 @@ default = [
 ]
 
 [dependencies]
-coroutine = "*"
 log = "*"
-#mio = "*"
 lazy_static = "*"
 url = "0.2"
+context = "*"
 
 [dev-dependencies]
 env_logger = "*"

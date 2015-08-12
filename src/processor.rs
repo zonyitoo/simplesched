@@ -9,8 +9,6 @@ use std::thread;
 #[cfg(target_os = "linux")]
 use std::mem;
 
-use coroutine::{State, Handle, Coroutine};
-
 use mio::{EventLoop, Evented, Handler, Token, EventSet, PollOpt};
 use mio::util::Slab;
 #[cfg(target_os = "linux")]
@@ -18,34 +16,53 @@ use mio::Io;
 
 use mio::util::BoundedQueue;
 
-use scheduler::Scheduler;
+use scheduler::{Scheduler, CoroutineRefMut};
+use coroutine::{self, Coroutine, State, Handle};
 
 thread_local!(static PROCESSOR: UnsafeCell<Processor> = UnsafeCell::new(Processor::new()));
 
 pub struct Processor {
     event_loop: EventLoop<IoHandler>,
-    work_queue: Arc<BoundedQueue<Handle>>,
+    work_queue: Arc<BoundedQueue<CoroutineRefMut>>,
     handler: IoHandler,
+    main_coro: Handle,
+    cur_running: Option<CoroutineRefMut>,
+    last_result: Option<coroutine::Result<State>>,
 }
 
 impl Processor {
     pub fn new() -> Processor {
+        let main_coro = unsafe {
+            Coroutine::empty()
+        };
+
         Processor {
             event_loop: EventLoop::new().unwrap(),
             work_queue: Scheduler::get().get_queue(),
             handler: IoHandler::new(),
+            main_coro: main_coro,
+            cur_running: None,
+            last_result: None,
         }
+    }
+
+    pub fn running(&mut self) -> Option<CoroutineRefMut> {
+        self.cur_running
     }
 
     pub fn current() -> &'static mut Processor {
         PROCESSOR.with(|p| unsafe { &mut *p.get() })
     }
 
+    pub fn set_last_result(&mut self, r: coroutine::Result<State>) {
+        self.last_result = Some(r);
+    }
+
     pub fn schedule(&mut self) -> io::Result<()> {
         loop {
             match self.work_queue.pop() {
                 Some(hdl) => {
-                    match hdl.resume() {
+                    match self.resume(hdl) {
                         Ok(State::Suspended) => {
                             Scheduler::ready(hdl);
                         },
@@ -53,7 +70,6 @@ impl Processor {
                             Scheduler::finished(hdl);
                         },
                         Ok(State::Blocked) => (),
-                        Ok(..) => unreachable!(),
                         Err(err) => {
                             error!("Coroutine resume failed, {:?}", err);
                             Scheduler::finished(hdl);
@@ -74,6 +90,48 @@ impl Processor {
 
         Ok(())
     }
+
+    pub fn resume(&mut self, coro_ref: CoroutineRefMut) -> coroutine::Result<State> {
+        self.cur_running = Some(coro_ref);
+        unsafe {
+            self.main_coro.yield_to(&mut *coro_ref.coro_ptr);
+        }
+
+        match self.last_result.take() {
+            None => Ok(State::Suspended),
+            Some(r) => r,
+        }
+    }
+
+    pub fn sched(&mut self) {
+        match self.cur_running.take() {
+            None => {},
+            Some(coro_ref) => unsafe {
+                self.set_last_result(Ok(State::Suspended));
+                (&mut *coro_ref.coro_ptr).yield_to(&*self.main_coro)
+            }
+        }
+    }
+
+    pub fn block(&mut self) {
+        match self.cur_running.take() {
+            None => {},
+            Some(coro_ref) => unsafe {
+                self.set_last_result(Ok(State::Blocked));
+                (&mut *coro_ref.coro_ptr).yield_to(&*self.main_coro)
+            }
+        }
+    }
+
+    pub fn yield_with(&mut self, r: coroutine::Result<State>) {
+        match self.cur_running.take() {
+            None => {},
+            Some(coro_ref) => unsafe {
+                self.set_last_result(r);
+                (&mut *coro_ref.coro_ptr).yield_to(&*self.main_coro)
+            }
+        }
+    }
 }
 
 const MAX_TOKEN_NUM: usize = 102400;
@@ -89,12 +147,13 @@ impl IoHandler {
           target_os = "android"))]
 impl Processor {
     pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
-        let token = self.handler.slabs.insert((Coroutine::current().clone(), From::from(fd.as_raw_fd()))).unwrap();
+        let token = self.handler.slabs.insert((Processor::current().running().clone(),
+                                               From::from(fd.as_raw_fd()))).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
                                           PollOpt::edge()|PollOpt::oneshot()));
 
         debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
-        Coroutine::block();
+        Scheduler::block();
         debug!("wait_event: Waked up; token={:?}", token);
 
         Ok(())
@@ -138,12 +197,13 @@ impl Handler for IoHandler {
           target_os = "openbsd"))]
 impl Processor {
     pub fn wait_event<E: Evented>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
-        let token = self.handler.slabs.insert(Coroutine::current().clone()).unwrap();
+        let token = self.handler.slabs.insert(Processor::current().running().unwrap()).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
                                           PollOpt::edge()|PollOpt::oneshot()));
 
         debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
-        Coroutine::block();
+        // Coroutine::block();
+        Scheduler::block();
         debug!("wait_event: Waked up; token={:?}", token);
 
         Ok(())
@@ -157,7 +217,7 @@ impl Processor {
           target_os = "bitrig",
           target_os = "openbsd"))]
 struct IoHandler {
-    slabs: Slab<Handle>,
+    slabs: Slab<CoroutineRefMut>,
 }
 
 #[cfg(any(target_os = "macos",
