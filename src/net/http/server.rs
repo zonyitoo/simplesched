@@ -80,14 +80,13 @@ impl<L: NetworkListener + Send + 'static> Server<L> {
 
         Scheduler::spawn(move|| {
             use std::sync::Arc;
-            use std::ops::Deref;
 
             let handler = Arc::new(handler);
             loop {
                 let mut stream = self.listener.accept().unwrap();
 
                 let handler = handler.clone();
-                Scheduler::spawn(move|| Worker(handler.deref()).handle_connection(&mut stream));
+                Scheduler::spawn(move|| Worker(&*handler).handle_connection(&mut stream));
             }
         });
 
