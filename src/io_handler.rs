@@ -42,13 +42,13 @@ impl Handler for IoHandler {
             SchedMessage::Exit => event_loop.shutdown(),
             SchedMessage::ReadEvent(io, coro) => {
                 let token = self.slabs.insert((coro, From::from(io.as_raw_fd()))).unwrap();
-                event_loop.register_opt(io, token, EventSet::readable(),
+                event_loop.register_opt(&io, token, EventSet::readable(),
                                         PollOpt::edge()|PollOpt::oneshot()).unwrap();
                 mem::forget(io);
             },
             SchedMessage::WriteEvent(io, coro) => {
                 let token = self.slabs.insert(coro).unwrap();
-                event_loop.register_opt(io, token, EventSet::writable(),
+                event_loop.register_opt(&io, token, EventSet::writable(),
                                         PollOpt::edge()|PollOpt::oneshot()).unwrap();
                 mem::forget(io);
             }
