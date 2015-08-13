@@ -19,6 +19,8 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+//! Global coroutine scheduler
+
 use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -35,6 +37,7 @@ lazy_static! {
     static ref SCHEDULER: Scheduler = Scheduler::new();
 }
 
+#[doc(hidden)]
 #[allow(raw_pointer_derive)]
 #[derive(Copy, Clone, Debug)]
 pub struct CoroutineRefMut {
@@ -51,6 +54,7 @@ impl CoroutineRefMut {
 
 unsafe impl Send for CoroutineRefMut {}
 
+/// Coroutine scheduler
 pub struct Scheduler {
     global_queue: Arc<BoundedQueue<CoroutineRefMut>>,
     work_counts: AtomicUsize,
@@ -74,6 +78,7 @@ impl Scheduler {
         &SCHEDULER
     }
 
+    #[doc(hidden)]
     /// A coroutine is ready for schedule
     pub fn ready(mut coro: CoroutineRefMut) {
         loop {
@@ -84,11 +89,13 @@ impl Scheduler {
         }
     }
 
+    #[doc(hidden)]
     /// Get the global work queue
     pub fn get_queue(&self) -> Arc<BoundedQueue<CoroutineRefMut>> {
         self.global_queue.clone()
     }
 
+    #[doc(hidden)]
     /// A coroutine is finished
     pub fn finished(coro: CoroutineRefMut) {
         Scheduler::get().work_counts.fetch_sub(1, Ordering::SeqCst);
@@ -149,6 +156,7 @@ impl Scheduler {
         Processor::current().sched();
     }
 
+    /// Block the current coroutine
     pub fn block() {
         Processor::current().block();
     }

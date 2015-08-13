@@ -19,6 +19,11 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+//! The most naive coroutine scheduler with asynchronous I/O support.
+//!
+//! The scheduler will hold a global lock-free queue for tasks, all worker threads
+//! will take tasks from the global queue.
+
 #![feature(libc, rt, box_raw, reflect_marker)]
 
 extern crate context;
