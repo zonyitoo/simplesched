@@ -2,6 +2,10 @@
 name = "simplesched"
 version = "0.1.0"
 authors = ["Y. T. Chung <zonyitoo@gmail.com>"]
+description = "A naive coroutine based scheduler with asynchronous I/O support"
+repository = "https://github.com/zonyitoo/simplesched"
+license = "MIT"
+keywords = ["coroutine", "green", "net", "fiber"]
 
 [lib]
 name = "simplesched"
