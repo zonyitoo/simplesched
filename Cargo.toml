@@ -26,12 +26,14 @@ num_cpus = "*"
 
 [dependencies.mio]
 git = "https://github.com/carllerche/mio.git"
+rev = "77775a151d"
 
 [dependencies.hyper]
 git = "https://github.com/hyperium/hyper.git"
 
 [dependencies.bytes]
 git = "https://github.com/carllerche/bytes.git"
+rev = "7edb577d0a"
 
 [dependencies.openssl]
 version = "*"
