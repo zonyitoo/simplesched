@@ -3,8 +3,8 @@
 The most naive scheduler for Coroutines in Rust.
 
 [![Build Status](https://img.shields.io/travis/zonyitoo/simplesched.svg)](https://travis-ci.org/zonyitoo/simplesched)
-[![Crates.io](	https://img.shields.io/crates/l/simplesched.svg)](	https://img.shields.io/crates/l/simplesched.svg)
-[![Crates.io](	https://img.shields.io/crates/v/simplesched.svg)](https://img.shields.io/crates/v/simplesched.svg)
+[![Crates.io](	https://img.shields.io/crates/l/simplesched.svg)](	https://crates.io/crates/simplesched)
+[![Crates.io](	https://img.shields.io/crates/v/simplesched.svg)](https://crates.io/crates/simplesched)
 
 ## Usage
 
