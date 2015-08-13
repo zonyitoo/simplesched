@@ -27,7 +27,7 @@ use std::error::Error;
 use std::marker::Reflect;
 use std::ops::{Deref, DerefMut};
 
-use coroutine::Coroutine;
+use scheduler::Scheduler;
 
 pub type LockResult<G> = Result<G, PoisonError<G>>;
 pub type TryLockResult<G> = Result<G, PoisonError<G>>;
@@ -56,7 +56,7 @@ impl<T> Mutex<T> {
                 return Ok(Guard::new(unsafe { &mut *self.data.get() }, self));
             }
 
-            Coroutine::sched();
+            Scheduler::sched();
         }
 
         Err(PoisonError::new(Guard::new(unsafe { &mut *self.data.get() }, self)))
