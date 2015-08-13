@@ -1,30 +1,22 @@
 use std::cell::UnsafeCell;
 use std::io;
-#[cfg(target_os = "linux")]
 use std::os::unix::io::AsRawFd;
-#[cfg(target_os = "linux")]
 use std::convert::From;
 use std::sync::Arc;
 use std::thread;
-#[cfg(target_os = "linux")]
-use std::mem;
 
-use mio::{EventLoop, Evented, Handler, Token, EventSet, PollOpt};
-use mio::util::Slab;
-#[cfg(target_os = "linux")]
-use mio::Io;
+use mio::{Evented, Handler, Sender};
 
 use mio::util::BoundedQueue;
 
-use scheduler::{Scheduler, CoroutineRefMut};
+use scheduler::{Scheduler, CoroutineRefMut, SchedMessage};
 use coroutine::{self, Coroutine, State, Handle};
 
 thread_local!(static PROCESSOR: UnsafeCell<Processor> = UnsafeCell::new(Processor::new()));
 
 pub struct Processor {
-    event_loop: EventLoop<IoHandler>,
+    event_loop_hdl: Sender<SchedMessage>,
     work_queue: Arc<BoundedQueue<CoroutineRefMut>>,
-    handler: IoHandler,
     main_coro: Handle,
     cur_running: Option<CoroutineRefMut>,
     last_result: Option<coroutine::Result<State>>,
@@ -37,9 +29,8 @@ impl Processor {
         };
 
         Processor {
-            event_loop: EventLoop::new().unwrap(),
+            event_loop_hdl: Scheduler::get().get_eventloop_handle(),
             work_queue: Scheduler::get().get_queue(),
-            handler: IoHandler::new(),
             main_coro: main_coro,
             cur_running: None,
             last_result: None,
@@ -77,9 +68,7 @@ impl Processor {
                     }
                 },
                 None => {
-                    if self.handler.slabs.count() != 0 {
-                        try!(self.event_loop.run_once(&mut self.handler));
-                    } else if Scheduler::get().work_count() == 0 {
+                    if Scheduler::get().work_count() == 0 {
                         break;
                     } else {
                         thread::sleep_ms(100);
@@ -134,112 +123,28 @@ impl Processor {
     }
 }
 
-const MAX_TOKEN_NUM: usize = 102400;
-impl IoHandler {
-    fn new() -> IoHandler {
-        IoHandler {
-            slabs: Slab::new(MAX_TOKEN_NUM),
-        }
-    }
-}
-
-#[cfg(any(target_os = "linux",
+#[cfg(any(target_os = "macos",
+          target_os = "freebsd",
+          target_os = "dragonfly",
+          target_os = "ios",
+          target_os = "bitrig",
+          target_os = "openbsd",
+          target_os = "linux",
           target_os = "android"))]
 impl Processor {
-    pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
-        let token = self.handler.slabs.insert((Processor::current().running().unwrap(),
-                                               From::from(fd.as_raw_fd()))).unwrap();
-        try!(self.event_loop.register_opt(fd, token, interest,
-                                          PollOpt::edge()|PollOpt::oneshot()));
+    pub fn read_event<E: Evented + AsRawFd>(&mut self, fd: &E) {
+        Scheduler::run_loop();
+        self.event_loop_hdl.send(SchedMessage::ReadEvent(From::from(fd.as_raw_fd()),
+                                                         Processor::current().running().unwrap())).unwrap();
 
-        debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
         Scheduler::block();
-        debug!("wait_event: Waked up; token={:?}", token);
-
-        Ok(())
     }
-}
 
-#[cfg(any(target_os = "linux",
-          target_os = "android"))]
-struct IoHandler {
-    slabs: Slab<(CoroutineRefMut, Io)>,
-}
+    pub fn write_event<E: Evented + AsRawFd>(&mut self, fd: &E) {
+        Scheduler::run_loop();
+        self.event_loop_hdl.send(SchedMessage::WriteEvent(From::from(fd.as_raw_fd()),
+                                                         Processor::current().running().unwrap())).unwrap();
 
-#[cfg(any(target_os = "linux",
-          target_os = "android"))]
-impl Handler for IoHandler {
-    type Timeout = ();
-    type Message = ();
-
-    fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
-        debug!("Got {:?} for {:?}", events, token);
-
-        match self.slabs.remove(token) {
-            Some((hdl, fd)) => {
-                // Linux EPoll needs to explicit EPOLL_CTL_DEL the fd
-                event_loop.deregister(&fd).unwrap();
-                mem::forget(fd);
-                Scheduler::ready(hdl);
-            },
-            None => {
-                warn!("No coroutine is waiting on readable {:?}", token);
-            }
-        }
-    }
-}
-
-#[cfg(any(target_os = "macos",
-          target_os = "freebsd",
-          target_os = "dragonfly",
-          target_os = "ios",
-          target_os = "bitrig",
-          target_os = "openbsd"))]
-impl Processor {
-    pub fn wait_event<E: Evented>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
-        let token = self.handler.slabs.insert(Processor::current().running().unwrap()).unwrap();
-        try!(self.event_loop.register_opt(fd, token, interest,
-                                          PollOpt::edge()|PollOpt::oneshot()));
-
-        debug!("wait_event: Blocked current Coroutine ...; token={:?}", token);
-        // Coroutine::block();
         Scheduler::block();
-        debug!("wait_event: Waked up; token={:?}", token);
-
-        Ok(())
-    }
-}
-
-#[cfg(any(target_os = "macos",
-          target_os = "freebsd",
-          target_os = "dragonfly",
-          target_os = "ios",
-          target_os = "bitrig",
-          target_os = "openbsd"))]
-struct IoHandler {
-    slabs: Slab<CoroutineRefMut>,
-}
-
-#[cfg(any(target_os = "macos",
-          target_os = "freebsd",
-          target_os = "dragonfly",
-          target_os = "ios",
-          target_os = "bitrig",
-          target_os = "openbsd"))]
-impl Handler for IoHandler {
-    type Timeout = ();
-    type Message = ();
-
-    fn ready(&mut self, _: &mut EventLoop<Self>, token: Token, events: EventSet) {
-        debug!("Got {:?} for {:?}", events, token);
-
-        match self.slabs.remove(token) {
-            Some(hdl) => {
-                Scheduler::ready(hdl);
-            },
-            None => {
-                warn!("No coroutine is waiting on readable {:?}", token);
-            }
-        }
     }
 }

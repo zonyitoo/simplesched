@@ -25,7 +25,7 @@ use std::ops::{Deref, DerefMut};
 use std::convert::From;
 use std::iter::Iterator;
 
-use mio::{self, EventSet};
+use mio;
 
 use processor::Processor;
 
@@ -93,7 +93,7 @@ impl TcpListener {
         }
 
         loop {
-            try!(Processor::current().wait_event(&self.0, EventSet::readable()));
+            Processor::current().read_event(&self.0);
 
             match self.0.accept() {
                 Ok(None) => {
@@ -170,7 +170,7 @@ impl TcpStream {
         match TcpSocket::connect(addr) {
             Ok((stream, completed)) => {
                 if !completed {
-                    try!(Processor::current().wait_event(&stream.0, EventSet::writable()));
+                    Processor::current().write_event(&stream.0);
                     try!(stream.take_socket_error());
                 }
 
@@ -226,7 +226,7 @@ impl io::Read for TcpStream {
 
         loop {
             debug!("Read: Going to register event");
-            try!(Processor::current().wait_event(&self.0, EventSet::readable()));
+            Processor::current().read_event(&self.0);
             debug!("Read: Got read event");
 
             match self.0.try_read(buf) {
@@ -272,7 +272,7 @@ impl io::Write for TcpStream {
 
         loop {
             debug!("Write: Going to register event");
-            try!(Processor::current().wait_event(&self.0, EventSet::writable()));
+            Processor::current().write_event(&self.0);
             debug!("Write: Got write event");
 
             match self.0.try_write(buf) {

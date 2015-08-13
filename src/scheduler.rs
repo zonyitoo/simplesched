@@ -23,10 +23,13 @@ use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::mem;
+use std::cell::UnsafeCell;
 
 use mio::util::BoundedQueue;
+use mio::{EventLoop, Sender, Io};
 
 use processor::Processor;
+use io_handler::IoHandler;
 
 use coroutine::Coroutine;
 use options::Options;
@@ -54,6 +57,7 @@ unsafe impl Send for CoroutineRefMut {}
 pub struct Scheduler {
     global_queue: Arc<BoundedQueue<CoroutineRefMut>>,
     work_counts: AtomicUsize,
+    event_loop: UnsafeCell<EventLoop<IoHandler>>,
 }
 
 unsafe impl Send for Scheduler {}
@@ -66,6 +70,7 @@ impl Scheduler {
         Scheduler {
             global_queue: Arc::new(BoundedQueue::with_capacity(GLOBAL_QUEUE_SIZE)),
             work_counts: AtomicUsize::new(0),
+            event_loop: UnsafeCell::new(EventLoop::new().unwrap()),
         }
     }
 
@@ -87,6 +92,13 @@ impl Scheduler {
     /// Get the global work queue
     pub fn get_queue(&self) -> Arc<BoundedQueue<CoroutineRefMut>> {
         self.global_queue.clone()
+    }
+
+    /// Get the eventloop handle
+    pub fn get_eventloop_handle(&self) -> Sender<SchedMessage> {
+        unsafe {
+            (*self.event_loop.get()).channel()
+        }
     }
 
     /// A coroutine is finished
@@ -127,6 +139,14 @@ impl Scheduler {
 
     /// Run the scheduler with `n` threads
     pub fn run(n: usize) {
+        // thread::spawn(|| {
+        //     let mut handler = IoHandler::new();
+        //     let mut evloop: &mut EventLoop<IoHandler> = unsafe {
+        //         &mut *Scheduler::get().event_loop.get()
+        //     };
+        //     evloop.run(&mut handler).unwrap();
+        // });
+
         let mut futs = Vec::new();
         for _ in 0..n {
             let fut = thread::spawn(|| {
@@ -142,6 +162,23 @@ impl Scheduler {
         for fut in futs.into_iter() {
             fut.join().unwrap();
         }
+
+        let _ = Scheduler::get().get_eventloop_handle().send(SchedMessage::Exit);
+    }
+
+    pub fn run_loop() {
+        use std::sync::{Once, ONCE_INIT};
+
+        static INIT_ONCE: Once = ONCE_INIT;
+        INIT_ONCE.call_once(|| {
+            thread::spawn(|| {
+                let mut handler = IoHandler::new();
+                let mut evloop: &mut EventLoop<IoHandler> = unsafe {
+                    &mut *Scheduler::get().event_loop.get()
+                };
+                evloop.run(&mut handler).unwrap();
+            });
+        })
     }
 
     /// Suspend the current coroutine
@@ -152,4 +189,11 @@ impl Scheduler {
     pub fn block() {
         Processor::current().block();
     }
+}
+
+#[derive(Debug)]
+pub enum SchedMessage {
+    ReadEvent(Io, CoroutineRefMut),
+    WriteEvent(Io, CoroutineRefMut),
+    Exit,
 }
