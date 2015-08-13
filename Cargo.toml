@@ -12,10 +12,13 @@ default = [
 ]
 
 [dependencies]
-log = "*"
-lazy_static = "*"
+log = "0.3.1"
+lazy_static = "0.1.14"
 url = "0.2"
-context = "*"
+context = "^0.1.1"
+mio = "^0.4.1"
+bytes = "^0.2.10"
+hyper = "^0.6.8"
 
 [dev-dependencies]
 env_logger = "*"
@@ -24,17 +27,6 @@ rand = "*"
 openssl = "*"
 num_cpus = "*"
 
-[dependencies.mio]
-git = "https://github.com/carllerche/mio.git"
-rev = "77775a151d"
-
-[dependencies.hyper]
-git = "https://github.com/hyperium/hyper.git"
-
-[dependencies.bytes]
-git = "https://github.com/carllerche/bytes.git"
-rev = "7edb577d0a"
-
 [dependencies.openssl]
-version = "*"
+version = "^0.6.4"
 optional = true
