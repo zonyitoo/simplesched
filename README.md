@@ -84,3 +84,41 @@ fn main() {
 ```
 
 More examples could be found in `examples`.
+
+## Basic Benchmark
+
+### Test environment
+* OS X 10.10.5 Beta
+* MacBook Pro Late 2013
+* 2.4GHz Intel Core i5
+* 8 GB 1600 MHz DDR3
+
+Release build. Run the `example/http-echo-server.rs` with 4 threads, test it with `wrk`:
+
+```
+$ wrk -c 400 -t 2 http://127.0.0.1:8000/
+Running 10s test @ http://127.0.0.1:8000/
+  2 threads and 400 connections
+
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     7.62ms    5.53ms  79.79ms   83.26%
+    Req/Sec    27.23k     3.78k   36.30k    73.50%
+  543098 requests in 10.06s, 46.61MB read
+Requests/sec:  53965.70
+Transfer/sec:      4.63MB
+```
+
+Go 1.4.2 example HTTP echo server, with `GOMAXPROC=4`:
+
+```
+wrk -c 400 -t 2 http://127.0.0.1:8000/
+Running 10s test @ http://127.0.0.1:8000/
+  2 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    15.36ms    3.67ms  61.79ms   84.67%
+    Req/Sec    13.08k     1.33k   19.49k    88.06%
+  261741 requests in 10.07s, 33.70MB read
+  Socket errors: connect 0, read 1, write 0, timeout 0
+Requests/sec:  25979.63
+Transfer/sec:      3.34MB
+```
