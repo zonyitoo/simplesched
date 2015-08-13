@@ -3,6 +3,10 @@ use std::mem;
 use mio::{EventSet, PollOpt, Handler, EventLoop, Token};
 use mio::util::Slab;
 
+#[cfg(any(target_os = "linux",
+          target_os = "android"))]
+use mio::Io;
+
 use scheduler::{Scheduler, CoroutineRefMut, SchedMessage};
 
 #[cfg(any(target_os = "linux",
