@@ -147,7 +147,7 @@ impl IoHandler {
           target_os = "android"))]
 impl Processor {
     pub fn wait_event<E: Evented + AsRawFd>(&mut self, fd: &E, interest: EventSet) -> io::Result<()> {
-        let token = self.handler.slabs.insert((Processor::current().running().clone(),
+        let token = self.handler.slabs.insert((Processor::current().running().unwrap(),
                                                From::from(fd.as_raw_fd()))).unwrap();
         try!(self.event_loop.register_opt(fd, token, interest,
                                           PollOpt::edge()|PollOpt::oneshot()));
@@ -163,7 +163,7 @@ impl Processor {
 #[cfg(any(target_os = "linux",
           target_os = "android"))]
 struct IoHandler {
-    slabs: Slab<(Handle, Io)>,
+    slabs: Slab<(CoroutineRefMut, Io)>,
 }
 
 #[cfg(any(target_os = "linux",
