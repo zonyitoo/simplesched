@@ -38,6 +38,8 @@ impl Handler for IoHandler {
     }
 
     fn notify(&mut self, event_loop: &mut EventLoop<Self>, msg: SchedMessage) {
+        use std::os::unix::io::AsRawFd;
+
         match msg {
             SchedMessage::Exit => event_loop.shutdown(),
             SchedMessage::ReadEvent(io, coro) => {
@@ -47,7 +49,7 @@ impl Handler for IoHandler {
                 mem::forget(io);
             },
             SchedMessage::WriteEvent(io, coro) => {
-                let token = self.slabs.insert(coro).unwrap();
+                let token = self.slabs.insert((coro, From::from(io.as_raw_fd()))).unwrap();
                 event_loop.register_opt(&io, token, EventSet::writable(),
                                         PollOpt::edge()|PollOpt::oneshot()).unwrap();
                 mem::forget(io);
