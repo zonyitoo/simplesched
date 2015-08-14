@@ -93,7 +93,7 @@ More examples could be found in `examples`.
 * 2.4GHz Intel Core i5
 * 8 GB 1600 MHz DDR3
 
-Release build. Run the `example/http-echo-server.rs` with 4 threads, test it with `wrk`:
+Release build. Run the `examples/http-echo-server.rs` with 4 threads, test it with `wrk`:
 
 ```
 $ wrk -c 400 -t 2 http://127.0.0.1:8000/
@@ -108,17 +108,17 @@ Requests/sec:  53965.70
 Transfer/sec:      4.63MB
 ```
 
-Go 1.4.2 example HTTP echo server, with `GOMAXPROC=4`:
+Go 1.4.2 example HTTP echo server, with `GOMAXPROCS=4`:
 
 ```
-wrk -c 400 -t 2 http://127.0.0.1:8000/
+$ wrk -c 400 -t 2 http://127.0.0.1:8000/
 Running 10s test @ http://127.0.0.1:8000/
   2 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    15.36ms    3.67ms  61.79ms   84.67%
-    Req/Sec    13.08k     1.33k   19.49k    88.06%
-  261741 requests in 10.07s, 33.70MB read
-  Socket errors: connect 0, read 1, write 0, timeout 0
-Requests/sec:  25979.63
-Transfer/sec:      3.34MB
+    Latency    10.99ms   19.69ms 234.40ms   93.11%
+    Req/Sec    20.22k     8.58k   47.88k    67.02%
+  393495 requests in 10.08s, 50.66MB read
+  Socket errors: connect 0, read 12, write 0, timeout 0
+Requests/sec:  39023.62
+Transfer/sec:      5.02MB
 ```
