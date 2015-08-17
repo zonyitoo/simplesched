@@ -132,11 +132,8 @@ impl Processor {
                 }
             }
 
-            match self.new_spawned.take() {
-                Some(hdl) => {
-                    self.run_task(hdl);
-                }
-                None => {}
+            while let Some(hdl) = self.new_spawned.take() {
+                self.run_task(hdl);
             }
         }
 

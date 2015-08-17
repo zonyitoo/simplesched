@@ -161,15 +161,19 @@ mod test {
     fn test_mutex() {
         let num = Arc::new(Mutex::new(0));
 
-        for _ in 0..100 {
-            let num = num.clone();
-            Scheduler::spawn(move|| {
-                for _ in 0..10 {
-                    let mut guard = num.lock().unwrap();
-                    *guard += 1;
-                }
-            });
-        }
+        let cloned_num = num.clone();
+        Scheduler::spawn(move|| {
+            for _ in 0..100 {
+                let num = cloned_num.clone();
+                Scheduler::spawn(move|| {
+                    for _ in 0..10 {
+                        let mut guard = num.lock().unwrap();
+                        *guard += 1;
+                    }
+                });
+                println!("????");
+            }
+        });
 
         Scheduler::run(10);
 
