@@ -29,7 +29,6 @@ use std::os::unix::io::AsRawFd;
 use std::convert::From;
 use std::sync::Arc;
 use std::thread;
-#[cfg(target_os = "linux")]
 use std::mem;
 
 use mio::{EventLoop, Evented, Handler, Token, EventSet, PollOpt};
@@ -41,6 +40,7 @@ use mio::util::BoundedQueue;
 
 use scheduler::{Scheduler, CoroutineRefMut};
 use coroutine::{self, Coroutine, State, Handle};
+use options::Options;
 
 thread_local!(static PROCESSOR: UnsafeCell<Processor> = UnsafeCell::new(Processor::new()));
 
@@ -52,6 +52,7 @@ pub struct Processor {
     main_coro: Handle,
     cur_running: Option<CoroutineRefMut>,
     last_result: Option<coroutine::Result<State>>,
+    new_spawned: Option<CoroutineRefMut>,
 }
 
 impl Processor {
@@ -68,6 +69,7 @@ impl Processor {
             main_coro: main_coro,
             cur_running: None,
             last_result: None,
+            new_spawned: None,
         }
     }
 
@@ -81,9 +83,35 @@ impl Processor {
         PROCESSOR.with(|p| unsafe { &mut *p.get() })
     }
 
+    /// Spawn a new coroutine and run it in this processor immediately
+    pub fn spawn_opts<F>(&mut self, f: F, opts: Options)
+        where F: FnOnce() + Send + 'static
+    {
+        let coro = Coroutine::spawn_opts(f, opts);
+        let coro = CoroutineRefMut::new(unsafe { mem::transmute(coro) });
+        self.new_spawned = Some(coro);
+        self.sched();
+    }
+
     #[doc(hidden)]
     pub fn set_last_result(&mut self, r: coroutine::Result<State>) {
         self.last_result = Some(r);
+    }
+
+    fn run_task(&mut self, hdl: CoroutineRefMut) {
+        match self.resume(hdl) {
+            Ok(State::Suspended) => {
+                Scheduler::ready(hdl);
+            },
+            Ok(State::Finished) | Ok(State::Panicked) => {
+                Scheduler::finished(hdl);
+            },
+            Ok(State::Blocked) => (),
+            Err(err) => {
+                error!("Coroutine resume failed, {:?}", err);
+                Scheduler::finished(hdl);
+            }
+        }
     }
 
     #[doc(hidden)]
@@ -91,19 +119,7 @@ impl Processor {
         loop {
             match self.work_queue.pop() {
                 Some(hdl) => {
-                    match self.resume(hdl) {
-                        Ok(State::Suspended) => {
-                            Scheduler::ready(hdl);
-                        },
-                        Ok(State::Finished) | Ok(State::Panicked) => {
-                            Scheduler::finished(hdl);
-                        },
-                        Ok(State::Blocked) => (),
-                        Err(err) => {
-                            error!("Coroutine resume failed, {:?}", err);
-                            Scheduler::finished(hdl);
-                        }
-                    }
+                    self.run_task(hdl)
                 },
                 None => {
                     if self.handler.slabs.count() != 0 {
@@ -114,6 +130,13 @@ impl Processor {
                         thread::sleep_ms(100);
                     }
                 }
+            }
+
+            match self.new_spawned.take() {
+                Some(hdl) => {
+                    self.run_task(hdl);
+                }
+                None => {}
             }
         }
 

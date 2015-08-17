@@ -33,6 +33,7 @@ fn main() {
             &SocketAddr::V6(..) => TcpSocket::v6(),
         }.unwrap();
         server.set_reuseaddr(true).unwrap();
+        server.bind(&addr).unwrap();
         let server = server.listen(64).unwrap();
 
         info!("Listening on {:?}", server.local_addr().unwrap());

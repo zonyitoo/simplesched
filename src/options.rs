@@ -22,6 +22,7 @@
 //! Coroutine options
 
 use std::rt;
+use std::default::Default;
 
 /// Coroutine options
 pub struct Options {
@@ -45,5 +46,11 @@ impl Options {
     pub fn name(mut self, name: Option<String>) -> Options {
         self.name = name;
         self
+    }
+}
+
+impl Default for Options {
+    fn default() -> Options {
+        Options::new()
     }
 }

@@ -99,13 +99,13 @@ Release build. Run the `examples/http-echo-server.rs` with 4 threads, test it wi
 $ wrk -c 400 -t 2 http://127.0.0.1:8000/
 Running 10s test @ http://127.0.0.1:8000/
   2 threads and 400 connections
-
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     7.62ms    5.53ms  79.79ms   83.26%
-    Req/Sec    27.23k     3.78k   36.30k    73.50%
-  543098 requests in 10.06s, 46.61MB read
-Requests/sec:  53965.70
-Transfer/sec:      4.63MB
+    Latency     7.07ms    4.58ms  78.12ms   83.27%
+    Req/Sec    29.07k     3.80k   39.00k    76.00%
+  578941 requests in 10.04s, 51.90MB read
+  Socket errors: connect 0, read 101, write 0, timeout 0
+Requests/sec:  57667.33
+Transfer/sec:      5.17MB
 ```
 
 Go 1.4.2 example HTTP echo server, with `GOMAXPROCS=4`:
@@ -115,10 +115,10 @@ $ wrk -c 400 -t 2 http://127.0.0.1:8000/
 Running 10s test @ http://127.0.0.1:8000/
   2 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    10.99ms   19.69ms 234.40ms   93.11%
-    Req/Sec    20.22k     8.58k   47.88k    67.02%
-  393495 requests in 10.08s, 50.66MB read
-  Socket errors: connect 0, read 12, write 0, timeout 0
-Requests/sec:  39023.62
-Transfer/sec:      5.02MB
+    Latency     6.01ms    3.68ms  96.42ms   84.52%
+    Req/Sec    29.32k     6.53k   51.77k    71.21%
+  583573 requests in 10.05s, 75.13MB read
+  Socket errors: connect 0, read 35, write 0, timeout 0
+Requests/sec:  58084.36
+Transfer/sec:      7.48MB
 ```

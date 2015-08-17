@@ -24,7 +24,7 @@
 use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::mem;
+use std::default::Default;
 
 use mio::util::BoundedQueue;
 
@@ -113,38 +113,35 @@ impl Scheduler {
     pub fn spawn<F>(f: F)
         where F: FnOnce() + 'static + Send
     {
-        let coro = Coroutine::spawn(f);
-        Scheduler::get().work_counts.fetch_add(1, Ordering::SeqCst);
-
-        let coro = CoroutineRefMut::new(unsafe { mem::transmute(coro) });
-        Scheduler::ready(coro);
-        Scheduler::sched();
+        Scheduler::spawn_opts(f, Default::default())
     }
 
     /// Spawn a new coroutine with options
     pub fn spawn_opts<F>(f: F, opts: Options)
         where F: FnOnce() + 'static + Send
     {
-        let coro = Coroutine::spawn_opts(f, opts);
         Scheduler::get().work_counts.fetch_add(1, Ordering::SeqCst);
-        let coro = CoroutineRefMut::new(unsafe { mem::transmute(coro) });
-        Scheduler::ready(coro);
-        Scheduler::sched();
+        Processor::current().spawn_opts(f, opts)
     }
 
     /// Run the scheduler with `n` threads
     pub fn run(n: usize) {
         let mut futs = Vec::new();
-        for _ in 0..n {
+        for _ in 1..n {
             let fut = thread::spawn(|| {
                 match Processor::current().schedule() {
                     Ok(..) => {},
-                    Err(err) => panic!("Processor schedule error: {:?}", err),
+                    Err(err) => error!("Processor schedule error: {:?}", err),
                 }
             });
 
             futs.push(fut);
         }
+
+        Processor::current().schedule()
+            .unwrap_or_else(|err| {
+                error!("Processor schedule error: {:?}", err);
+            });
 
         for fut in futs.into_iter() {
             fut.join().unwrap();

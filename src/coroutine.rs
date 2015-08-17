@@ -88,12 +88,6 @@ impl Coroutine {
         })
     }
 
-    pub fn spawn<F>(f: F) -> Handle
-        where F: FnOnce() + Send + 'static
-    {
-        Coroutine::spawn_opts(f, Options::new())
-    }
-
     pub fn yield_to(&mut self, target: &Coroutine) {
         Context::swap(&mut self.context, &target.context);
     }
