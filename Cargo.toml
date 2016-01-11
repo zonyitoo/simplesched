@@ -4,7 +4,7 @@ version = "0.1.1"
 authors = ["Y. T. Chung <zonyitoo@gmail.com>"]
 description = "A naive coroutine based scheduler with asynchronous I/O support"
 repository = "https://github.com/zonyitoo/simplesched"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["coroutine", "green", "net", "fiber"]
 
 [lib]
